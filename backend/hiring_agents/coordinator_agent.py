@@ -49,6 +49,10 @@ class HiringCoordinator(Agent):
         self.debate_complete = False
         self.decision_complete = False
 
+        # Add failure tracking
+        self.api_failure_count = 0
+        self.max_api_failures = 3  # Stop process after 3 API failures
+
         # Add flag to prevent duplicate requests
         self.initial_requests_sent = False
 
@@ -119,6 +123,24 @@ class HiringCoordinator(Agent):
         async def handle_debate_response(
             ctx: Context, sender: str, msg: DebateResponse
         ):
+            # Check for API failure responses (generic fallback responses)
+            if (
+                msg.argument
+                == "Candidate has strong technical skills and relevant experience"
+            ):
+                self.api_failure_count += 1
+                print(
+                    f"⚠️ Detected API failure response (count: {self.api_failure_count})"
+                )
+
+                if self.api_failure_count >= self.max_api_failures:
+                    print(
+                        f"🛑 Stopping process due to {self.api_failure_count} API failures"
+                    )
+                    # Send error decision immediately
+                    await self._handle_api_failure_shutdown(ctx)
+                    return
+
             if msg.position == "pro":
                 self.pro_arguments.append(msg)
                 print(f"Pro-Hire Round {len(self.pro_arguments)}: {msg.argument}")
@@ -145,6 +167,17 @@ class HiringCoordinator(Agent):
 
         self.include(self.protocol)
 
+    async def _handle_api_failure_shutdown(self, ctx: Context):
+        """Handle shutdown due to API failures"""
+        print("🚨 API failure shutdown initiated")
+        if self.websocket_manager:
+            await self.websocket_manager.send_event(
+                "System",
+                "Process stopped due to API rate limit. Please try again later.",
+            )
+        # Mark process as complete to prevent further execution
+        self.decision_complete = True
+
     async def _check_and_proceed(self, ctx: Context):
         """Check if we have both job and resume analysis, then proceed to intersection"""
         if self.job_complete and self.resume_complete:
@@ -168,8 +201,16 @@ class HiringCoordinator(Agent):
     async def _continue_debate(self, ctx: Context):
         """Continue the debate or end it and make decision"""
         total_rounds = len(self.pro_arguments) + len(self.anti_arguments)
+        print(
+            f"🔄 Continue debate check: Pro={len(self.pro_arguments)}, Anti={len(self.anti_arguments)}, Total={total_rounds}"
+        )
 
-        if total_rounds < 6:  # 3 rounds each = 6 total
+        # Strict bounds checking to prevent extra rounds
+        if (
+            total_rounds < 6
+            and len(self.pro_arguments) <= 3
+            and len(self.anti_arguments) <= 3
+        ):
             # Continue debate
             if len(self.pro_arguments) > len(self.anti_arguments):
                 # Anti-hire's turn
@@ -203,5 +244,7 @@ class HiringCoordinator(Agent):
                 pro_arguments=self.pro_arguments,
                 anti_arguments=self.anti_arguments,
                 intersection_analysis=self.intersection_analysis,
+                candidate_name=self.candidate_name,
+                job_title=self.job_title,
             )
             await ctx.send(self.decision_address, decision_request)

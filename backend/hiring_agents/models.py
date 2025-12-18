@@ -72,10 +72,13 @@ class DecisionRequest(BaseModel):
     pro_arguments: List[DebateResponse]
     anti_arguments: List[DebateResponse]
     intersection_analysis: IntersectionResponse
+    candidate_name: Optional[str] = None
+    job_title: Optional[str] = None
 
 
 class Reasoning(BaseModel):
     """Structured reasoning for the hiring decision."""
+
     summary: str
     pros: List[str]
     cons: List[str]
@@ -90,6 +93,7 @@ class DecisionResponse(BaseModel):
 
 class TranscriptEntry(BaseModel):
     """A single entry in the full evaluation transcript."""
+
     agent_name: str
     position: str  # 'evaluation', 'pro', 'anti', or 'decision'
     content: str
@@ -98,6 +102,7 @@ class TranscriptEntry(BaseModel):
 
 class FinalResult(BaseModel):
     """The final, comprehensive result of the entire hiring pipeline."""
+
     resume_analysis: ResumeParseResponse
     job_analysis: JobParseResponse
     intersection_analysis: IntersectionResponse

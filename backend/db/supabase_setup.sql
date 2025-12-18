@@ -137,4 +137,69 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_job_postings_updated_at
     BEFORE UPDATE ON job_postings
     FOR EACH ROW
-    EXECUTE FUNCTION update_job_postings_updated_at(); 
+    EXECUTE FUNCTION update_job_postings_updated_at();
+
+-- Top Candidates Table for candidates scoring above 85%
+-- This table stores high-scoring candidates for display on the main dashboard
+CREATE TABLE IF NOT EXISTS public.top_candidates (
+    id uuid primary key default gen_random_uuid(),
+    resume_id uuid REFERENCES resumes(id) ON DELETE SET NULL,
+    evaluation_id uuid REFERENCES hiring_evaluations(id) ON DELETE SET NULL,
+    candidate_name text not null,
+    job_title text not null,
+    job_id uuid REFERENCES job_postings(id) ON DELETE SET NULL,
+    position text not null,
+    email text,
+    phone text,
+    location text,
+    experience_years integer,
+    experience_level text,
+    education text,
+    overall_score float8 not null CHECK (overall_score >= 85.0),
+    decision text CHECK (decision IN ('HIRE', 'REJECT')),
+    confidence float8 not null,
+    skills jsonb,
+    summary text,
+    strengths jsonb,
+    concerns jsonb,
+    recommendation text,
+    key_factors jsonb,
+    achievements jsonb,
+    skill_matches jsonb,
+    skill_gaps jsonb,
+    experience_match text,
+    analysis text,
+    applied_date timestamp default now(),
+    created_at timestamp default now(),
+    updated_at timestamp default now()
+);
+
+-- Create indexes for the top_candidates table
+CREATE INDEX IF NOT EXISTS idx_top_candidates_score ON top_candidates(overall_score DESC);
+CREATE INDEX IF NOT EXISTS idx_top_candidates_job_id ON top_candidates(job_id);
+CREATE INDEX IF NOT EXISTS idx_top_candidates_candidate_name ON top_candidates(candidate_name);
+CREATE INDEX IF NOT EXISTS idx_top_candidates_created_at ON top_candidates(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_top_candidates_decision ON top_candidates(decision);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE top_candidates ENABLE ROW LEVEL SECURITY;
+
+-- Allow all operations (for dev, restrict as needed)
+DROP POLICY IF EXISTS "Allow all operations on top_candidates" ON top_candidates;
+CREATE POLICY "Allow all operations on top_candidates" ON top_candidates
+    FOR ALL USING (true);
+
+-- Auto-update updated_at on row update
+CREATE OR REPLACE FUNCTION update_top_candidates_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+DROP TRIGGER IF EXISTS update_top_candidates_updated_at ON top_candidates;
+CREATE TRIGGER update_top_candidates_updated_at
+    BEFORE UPDATE ON top_candidates
+    FOR EACH ROW
+    EXECUTE FUNCTION update_top_candidates_updated_at(); 

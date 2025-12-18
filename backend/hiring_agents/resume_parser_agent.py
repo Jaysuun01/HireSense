@@ -8,6 +8,7 @@ This agent parses resumes using ASI:One LLM to extract candidate information.
 from uagents import Agent, Context, Protocol
 # from uagents.setup import fund_agent_if_low  # Disabled to avoid network calls
 from .models import ResumeParseRequest, ResumeParseResponse
+#Model for resume parsing
 from .llm_client import SimpleLLMAgent
 
 
@@ -21,10 +22,10 @@ class ResumeParserAgent(Agent):
 
         @self.protocol.on_message(model=ResumeParseRequest)
         async def handle_resume_parse(
-            ctx: Context, sender: str, msg: ResumeParseRequest
+            ctx: Context, sender: str, msg: ResumeParseRequest # the information for the LLM(Context)
         ):
             print(f"📄 {self.name}: Parsing resume for {msg.candidate_name}")
-
+            #The content and rules for the LLM(Protocol)
             prompt = f"""
             Analyze the following resume and extract key information.
             

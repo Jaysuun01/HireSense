@@ -1,7 +1,0 @@
-
-John Doe
-Software Engineer
-Experience: 5 years Python, React, Node.js
-Skills: FastAPI, PostgreSQL, AWS
-Education: BS Computer Science
-

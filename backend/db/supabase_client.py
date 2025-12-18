@@ -5,15 +5,20 @@ Supabase Client for Hiring Evaluations
 This module provides a client to interact with the resumes and hiring_evaluations tables in Supabase.
 """
 
-
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 import os
+import json
 from typing import Dict, List, Optional, Any
 from supabase import create_client, Client
 from datetime import datetime
-import json
+
+
+SUPABASE_URL=os.getenv("SUPABASE_URL")
+SUPABASE_KEY=os.getenv("SUPABASE_KEY")
+# For testing purposes
+
+
+
+print(SUPABASE_URL, SUPABASE_KEY)
 
 
 class HiringEvaluationsClient:
@@ -535,6 +540,208 @@ class HiringEvaluationsClient:
         Delete a job posting by ID.
         """
         response = self.client.table("job_postings").delete().eq("id", job_id).execute()
+        return len(response.data) > 0
+
+    # --- Top Candidates Table Helpers ---
+
+    async def create_top_candidate(
+        self,
+        resume_id: Optional[str],
+        evaluation_id: Optional[str],
+        candidate_name: str,
+        job_title: str,
+        job_id: Optional[str],
+        position: str,
+        overall_score: float,
+        confidence: float,
+        decision: str = "HIRE",
+        email: Optional[str] = None,
+        phone: Optional[str] = None,
+        location: Optional[str] = None,
+        experience_years: Optional[int] = None,
+        experience_level: Optional[str] = None,
+        education: Optional[str] = None,
+        skills: Optional[List[Dict]] = None,
+        summary: Optional[str] = None,
+        strengths: Optional[List[str]] = None,
+        concerns: Optional[List[str]] = None,
+        recommendation: Optional[str] = None,
+        key_factors: Optional[List[str]] = None,
+        achievements: Optional[List[str]] = None,
+        skill_matches: Optional[List[str]] = None,
+        skill_gaps: Optional[List[str]] = None,
+        experience_match: Optional[str] = None,
+        analysis: Optional[str] = None,
+        applied_date: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """
+        Create a new top candidate record for candidates scoring above 85%.
+        """
+        print(f"🏗️ DB: create_top_candidate called with score: {overall_score}")
+        print(f"🏗️ DB: Candidate: {candidate_name}, Job: {job_title}")
+
+        # Validate score threshold
+        if overall_score < 85.0:
+            print(f"❌ DB: Score validation failed: {overall_score} < 85.0")
+            raise ValueError(f"Overall score must be >= 85.0, got {overall_score}")
+        print(f"✅ DB: Score validation passed: {overall_score} >= 85.0")
+
+        data = {
+            "resume_id": resume_id,
+            "evaluation_id": evaluation_id,
+            "candidate_name": candidate_name,
+            "job_title": job_title,
+            "job_id": job_id,
+            "position": position,
+            "overall_score": overall_score,
+            "decision": decision.upper() if decision else "HIRE",
+            "confidence": confidence,
+            "email": email,
+            "phone": phone,
+            "location": location,
+            "experience_years": experience_years,
+            "experience_level": experience_level,
+            "education": education,
+            "skills": json.dumps(skills) if skills else None,
+            "summary": summary,
+            "strengths": json.dumps(strengths) if strengths else None,
+            "concerns": json.dumps(concerns) if concerns else None,
+            "recommendation": recommendation,
+            "key_factors": json.dumps(key_factors) if key_factors else None,
+            "achievements": json.dumps(achievements) if achievements else None,
+            "skill_matches": json.dumps(skill_matches) if skill_matches else None,
+            "skill_gaps": json.dumps(skill_gaps) if skill_gaps else None,
+            "experience_match": experience_match,
+            "analysis": analysis,
+            "applied_date": applied_date.isoformat() if applied_date else None,
+        }
+
+        # Remove None values
+        print(f"🧹 DB: Data before cleaning: {len(data)} fields")
+        data = {k: v for k, v in data.items() if v is not None}
+        print(f"🧹 DB: Data after cleaning: {len(data)} fields")
+        print(f"📝 DB: Final data keys: {list(data.keys())}")
+
+        print(f"🚀 DB: Inserting into top_candidates table...")
+        response = self.client.table("top_candidates").insert(data).execute()
+        print(f"📥 DB: Response received from Supabase")
+
+        if response.data:
+            print(f"✅ DB: Successfully created top candidate record")
+            print(f"📄 DB: Record ID: {response.data[0].get('id', 'Unknown')}")
+            return response.data[0]
+        else:
+            print(f"❌ DB: Failed to create record - no data returned")
+            print(f"❌ DB: Response: {response}")
+            raise Exception("Failed to create top candidate record")
+
+    async def get_top_candidates(
+        self, limit: int = 20, job_id: Optional[str] = None, min_score: float = 85.0
+    ) -> List[Dict[str, Any]]:
+        """
+        Get top candidates sorted by score (highest first).
+        """
+        query = self.client.table("top_candidates").select("*")
+
+        if job_id:
+            query = query.eq("job_id", job_id)
+
+        query = query.gte("overall_score", min_score)
+
+        response = query.order("overall_score", desc=True).limit(limit).execute()
+        return response.data or []
+
+    async def get_top_candidate(self, candidate_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific top candidate by ID.
+        """
+        response = (
+            self.client.table("top_candidates")
+            .select("*")
+            .eq("id", candidate_id)
+            .execute()
+        )
+
+        if response.data:
+            return response.data[0]
+        return None
+
+    async def update_top_candidate(
+        self, candidate_id: str, **kwargs
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Update an existing top candidate record.
+        """
+        # Convert decision to uppercase if provided
+        if "decision" in kwargs:
+            kwargs["decision"] = kwargs["decision"].upper()
+
+        # Convert lists to JSON if provided
+        json_fields = [
+            "skills",
+            "strengths",
+            "concerns",
+            "key_factors",
+            "achievements",
+            "skill_matches",
+            "skill_gaps",
+        ]
+        for field in json_fields:
+            if field in kwargs and kwargs[field]:
+                kwargs[field] = json.dumps(kwargs[field])
+
+        response = (
+            self.client.table("top_candidates")
+            .update(kwargs)
+            .eq("id", candidate_id)
+            .execute()
+        )
+
+        if response.data:
+            return response.data[0]
+        return None
+
+    async def delete_top_candidate(self, candidate_id: str) -> bool:
+        """
+        Delete a top candidate record.
+        """
+        response = (
+            self.client.table("top_candidates")
+            .delete()
+            .eq("id", candidate_id)
+            .execute()
+        )
+        return len(response.data) > 0
+
+    async def get_top_candidates_by_job(
+        self, job_id: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        Get top candidates for a specific job.
+        """
+        response = (
+            self.client.table("top_candidates")
+            .select("*")
+            .eq("job_id", job_id)
+            .order("overall_score", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return response.data or []
+
+    async def candidate_exists_for_job(
+        self, candidate_name: str, job_title: str
+    ) -> bool:
+        """
+        Check if a candidate already exists for a specific job to avoid duplicates.
+        """
+        response = (
+            self.client.table("top_candidates")
+            .select("id")
+            .eq("candidate_name", candidate_name)
+            .eq("job_title", job_title)
+            .execute()
+        )
         return len(response.data) > 0
 
 

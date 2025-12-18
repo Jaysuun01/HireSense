@@ -84,7 +84,7 @@ class ProHireAgent(Agent):
                         confidence=0.8,
                         key_points=["Technical skills", "Experience level"],
                     )
-                    await ctx.send(sender, response)
+                    await ctx.send(sender, response) # send the response(information) to the user
             else:
                 response = DebateResponse(
                     position="pro",

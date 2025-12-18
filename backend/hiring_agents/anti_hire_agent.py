@@ -16,7 +16,7 @@ class AntiHireAgent(Agent):
         super().__init__("anti_hire_advocate", port, "anti_hire_seed")
         # fund_agent_if_low(self.wallet.address())
 
-        self.llm_agent = SimpleLLMAgent("anti_hire_advocate")
+        self.llm_agent = SimpleLLMAgent("anti_hire_advocate") # Model
         self.protocol = Protocol()
 
         @self.protocol.on_message(model=DebateRequest)

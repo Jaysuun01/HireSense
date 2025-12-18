@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Upload, FileText, CheckCircle, Briefcase, Users, Calendar, MapPin, Award, Target, BrainCircuit, Scale, XCircle } from "lucide-react"
+import { Upload, FileText, CheckCircle, Briefcase, Users, Calendar, MapPin, Award, Target, BrainCircuit, Scale, XCircle, ArrowLeft } from "lucide-react"
 import { jobPosts } from "@/lib/script"
 import { UploadResumeDialog } from "./upload-resume-dialog"
 import { AnalysisInProgress } from "./analysis-in-progress"
 import { RadialProgress } from "@/components/ui/radial-progress"
+import { UseCaseSelector } from "./use-case-selector"
+import { ResumeBuilderContent } from "./resume-builder-content"
 
 interface DatabaseJobPost {
   id: string
@@ -72,6 +74,7 @@ interface AnalysisResult {
 }
 
 export function ResumeUploadsContent() {
+  const [currentView, setCurrentView] = useState<'selector' | 'use-case-1' | 'use-case-2'>('selector')
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showTranscript, setShowTranscript] = useState(false)
@@ -164,19 +167,46 @@ export function ResumeUploadsContent() {
     setShowTranscript(false)
   }
 
+  const handleUseCaseSelection = (useCase: 1 | 2) => {
+    if (useCase === 1) {
+      setCurrentView('use-case-1')
+    } else {
+      setCurrentView('use-case-2')
+    }
+  }
+
+  const handleBackToSelector = () => {
+    setCurrentView('selector')
+    resetState()
+  }
+
   if (isAnalyzing) {
     return <AnalysisInProgress />
   }
 
+  // Show Use Case Selector
+  if (currentView === 'selector') {
+    return <UseCaseSelector onSelectUseCase={handleUseCaseSelection} />
+  }
+
+  // Show Use Case 1: Resume Builder
+  if (currentView === 'use-case-1') {
+    return <ResumeBuilderContent onBack={handleBackToSelector} />
+  }
+
+  // Show Use Case 2: Hiring Evaluator (existing functionality)
   return (
     <div className="flex flex-1 flex-col bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-blue-950/20">
       <header className="flex h-20 items-center justify-between border-b border-white/20 bg-white/70 backdrop-blur-xl px-8 shadow-sm dark:bg-slate-900/70 dark:border-slate-800/50">
         <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={handleBackToSelector} className="mr-2">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-violet-600">
             <Upload className="h-4 w-4 text-white" />
           </div>
           <h1 className="text-2xl font-bold bg-gradient-to-r from-slate-900 via-blue-800 to-violet-800 bg-clip-text text-transparent dark:from-white dark:via-blue-200 dark:to-violet-200">
-            Resume Uploads
+            Hiring Evaluator
           </h1>
         </div>
         {analysisResult && (

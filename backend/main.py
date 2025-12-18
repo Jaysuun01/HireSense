@@ -417,26 +417,17 @@ async def run_hiring_system(
         return None
 
     finally:
-        # Ultra-gentle cleanup that won't crash the server
+        # Minimal cleanup that won't interfere with server
         print("🧹 Cleaning up agents...")
+
+        # Don't actually wait for or cancel anything - just let them finish naturally
+        # This prevents any CancelledError from propagating to the server
         try:
-            # Don't await anything that could block or cause recursion
-            # Just cancel tasks and move on immediately
-            for task in tasks:
-                if not task.done():
-                    task.cancel()
+            print(f"✅ Leaving {len(tasks)} agent tasks to finish naturally")
+        except:
+            pass
 
-            # Use asyncio.create_task to avoid blocking the cleanup
-            async def gentle_cleanup():
-                await asyncio.sleep(0.1)  # Brief pause
-
-            # Fire and forget - don't await this
-            asyncio.create_task(gentle_cleanup())
-
-        except Exception:
-            pass  # Completely ignore any cleanup errors
-
-        print("✅ Agent cleanup completed")
+        print("✅ Agent cleanup completed (non-blocking)")
 
 
 # Test data and main execution
